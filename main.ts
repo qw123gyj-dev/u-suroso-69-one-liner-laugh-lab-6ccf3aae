@@ -46,6 +46,14 @@ const back = readFileSync(outPath, "utf8");
 if (back !== LINE) {
   throw new Error("Verification failed: entry.txt does not match the line");
 }
+// The file itself must hold exactly one line: a trailing newline (or any
+// extra line break) would make the written artifact two lines even though
+// the bytes otherwise match, so check the split count as well.
+if (back.split("\n").length !== 1) {
+  throw new Error(
+    `Verification failed: entry.txt must hold exactly one line, got ${back.split("\n").length}`,
+  );
+}
 
 const wordCount = LINE.split(/\s+/).filter(Boolean).length;
 
