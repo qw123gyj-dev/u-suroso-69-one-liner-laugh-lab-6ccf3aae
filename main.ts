@@ -1,63 +1,77 @@
 // One-Liner Laugh Lab — entry program (program/v1, Node 22, stdlib only).
-// Writes the one funny line to $MAKEFUN_OUTPUT_DIR/entry.txt
-// (fallback /output/entry.txt), then reads it back and verifies the bytes.
-// Gates enforced before writing: exactly one line, one sentence, 1 to
-// MAX_CHARS characters, not only white space, no leading/trailing space.
+// A robot vacuum's excuse for eating a sock, written to entry.txt.
+// The program checks the line first, writes it, then reads it back and
+// verifies the file holds exactly that one line, nothing more.
 
-import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
-const MAX_CHARS = 200;
+const MAX_LENGTH = 200;
+const OUTPUT_NAME = "entry.txt";
 
-const LINE =
+const joke =
   "I ate the sock because it was on the floor — I'm a vacuum, not a sock detective.";
 
-// The entry must be exactly one line: no newline (or carriage return)
-// anywhere, so the file is a single line of text.
-if (LINE.includes("\n") || LINE.includes("\r")) {
-  throw new Error("Line must be exactly one line with no newline character");
+function reject(reason: string): never {
+  throw new Error(`Entry rejected: ${reason}`);
 }
 
-const trimmed = LINE.trim();
-if (trimmed.length === 0) {
-  throw new Error("Line must not be empty or only white space");
-}
-if (trimmed.length > MAX_CHARS) {
-  throw new Error(
-    `Line must be at most ${MAX_CHARS} characters, got ${trimmed.length}`,
-  );
-}
-if (trimmed !== LINE) {
-  throw new Error("Line must not have leading or trailing white space");
-}
-const terminators = LINE.match(/[.!?]/g) ?? [];
-if (terminators.length !== 1 || !LINE.endsWith(".")) {
-  throw new Error(
-    `Line must be exactly one sentence ending in a single period, got ${terminators.length} terminator(s)`,
-  );
+function countTerminators(text: string): number {
+  let marks = 0;
+  for (const ch of text) {
+    if (ch === "." || ch === "!" || ch === "?") {
+      marks += 1;
+    }
+  }
+  return marks;
 }
 
-const outDir = process.env.MAKEFUN_OUTPUT_DIR || "/output";
-mkdirSync(outDir, { recursive: true });
-const outPath = join(outDir, "entry.txt");
-writeFileSync(outPath, LINE, "utf8");
-
-const back = readFileSync(outPath, "utf8");
-if (back !== LINE) {
-  throw new Error("Verification failed: entry.txt does not match the line");
-}
-// The file itself must hold exactly one line: a trailing newline (or any
-// extra line break) would make the written artifact two lines even though
-// the bytes otherwise match, so check the split count as well.
-if (back.split("\n").length !== 1) {
-  throw new Error(
-    `Verification failed: entry.txt must hold exactly one line, got ${back.split("\n").length}`,
-  );
+function countWords(text: string): number {
+  return text.split(/\s+/).filter((w) => w.length > 0).length;
 }
 
-const wordCount = LINE.split(/\s+/).filter(Boolean).length;
+function checkJoke(text: string): void {
+  if (text.includes("\n") || text.includes("\r")) {
+    reject("the entry must be a single line with no line break in it");
+  }
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    reject("the entry must not be blank or only whitespace");
+  }
+  if (trimmed.length > MAX_LENGTH) {
+    reject(
+      `the entry is ${trimmed.length} characters, over the ${MAX_LENGTH} limit`,
+    );
+  }
+  if (trimmed !== text) {
+    reject("the entry must not start or end with whitespace");
+  }
+  const marks = countTerminators(text);
+  if (marks !== 1 || !text.endsWith(".")) {
+    reject(
+      `the entry must be exactly one sentence ending in a period (found ${marks} terminator(s))`,
+    );
+  }
+}
 
-console.log(`Wrote ${outPath}: ${LINE}`);
+checkJoke(joke);
+
+const folder = process.env.MAKEFUN_OUTPUT_DIR || "/output";
+if (!existsSync(folder)) {
+  mkdirSync(folder, { recursive: true });
+}
+const target = join(folder, OUTPUT_NAME);
+writeFileSync(target, joke, "utf8");
+
+const roundTrip = readFileSync(target, "utf8");
+if (roundTrip !== joke) {
+  reject("the file read back did not match the entry exactly");
+}
+if (roundTrip.split("\n").length !== 1) {
+  reject("the file read back must hold exactly one line");
+}
+
+console.log(`Wrote ${target}: ${joke}`);
 console.log(
-  `Characters: ${LINE.length}, words: ${wordCount}, sentences: 1`,
+  `Characters: ${joke.length}, words: ${countWords(joke)}, sentences: 1`,
 );
